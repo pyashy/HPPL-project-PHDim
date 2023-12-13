@@ -1,9 +1,17 @@
 from scipy.spatial.distance import cdist
 import numpy as np
+import cupy as cp
+from numba import jit
 
 class PHD():
     
-    def __init__(self, alpha=1.0, metric='euclidean', n_reruns=5, n_points=15):
+    def __init__(
+        self, 
+        alpha=1.0, 
+        metric='euclidean', 
+        n_reruns=5, 
+        n_points=15, 
+        mst_method_name: str = 'classic'):
         '''
         Initializes the instance of PH-dim estimator
         Parameters:
@@ -18,6 +26,16 @@ class PHD():
         self.n_points = n_points
         self.metric = metric
         self.is_fitted_ = False
+
+        method = {
+            'classic': self.get_mst_value,
+            'numba': self.get_nb_mst_value,
+            'cupy': self.get_cp_mst_value,
+        }
+
+        if mst_method_name not in method.keys():
+            raise ValueError(f'Method {mst_method_name} is not implemented')
+        self.mst_method = method[mst_method_name]
 
     def _generate_samples(self, dist_mat, min_points):
         n = dist_mat.shape[0]
@@ -48,6 +66,47 @@ class PHD():
             s += (adj_matrix[v][ancestor[v]] ** alpha)
 
         return s.item()
+    
+    def _cp_prim_tree(self, adj_matrix, ids, alpha=1.0):
+    
+        adj_matrix = adj_matrix[cp.ix_(ids,ids)]
+
+        infty = cp.max(adj_matrix) + 10
+
+        dst = cp.ones(adj_matrix.shape[0]) * infty
+        visited = cp.zeros(adj_matrix.shape[0], dtype=bool)
+        ancestor = -cp.ones(adj_matrix.shape[0], dtype=int)
+
+        v, s = 0, 0.0
+        for i in range(adj_matrix.shape[0] - 1):
+            visited[v] = 1
+            ancestor[dst > adj_matrix[v]] = v
+            dst = cp.minimum(dst, adj_matrix[v])
+            dst[visited] = infty
+
+            v = cp.argmin(dst)
+            s += (adj_matrix[v][ancestor[v]] ** alpha)
+
+        return s.item()
+    
+    def get_mst_value(self, random_indices, dist_mat):
+        mst_values = np.zeros(len(random_indices))
+        for i, ids in enumerate(random_indices):
+            mst_values[i] = self._prim_tree(dist_mat, ids)
+        return mst_values
+
+    def get_cp_mst_value(self, random_indices, dist_mat):
+        mst_values = cp.zeros(len(random_indices))
+        for i, ids in enumerate(random_indices):
+            mst_values[i] = self._cp_prim_tree(dist_mat, ids)
+        return mst_values
+    
+    @jit
+    def get_nb_mst_value(self, random_indices, dist_mat):
+        mst_values = cp.zeros(len(random_indices))
+        for i, ids in enumerate(random_indices):
+            mst_values[i] = self._prim_tree(dist_mat, ids)
+        return mst_values
 
         
     def fit_transform(self, X, y=None, min_points = 50):
@@ -63,9 +122,7 @@ class PHD():
         
         
         ##### HERE IS THE ONLY LOOP WE NEED TO SPEED UP #####
-        mst_values = np.zeros(len(random_indices))
-        for i, ids in enumerate(random_indices):
-            mst_values[i] = self._prim_tree(dist_mat, ids)
+        mst_values = self.mst_method(random_indices, dist_mat)
             
         y = mst_values.reshape(-1, self.n_reruns).mean(axis = 1)
         
