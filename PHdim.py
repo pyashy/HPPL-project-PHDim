@@ -1,6 +1,6 @@
 from scipy.spatial.distance import cdist
 import numpy as np
-import cupy as cp
+# import cupy as cp
 from numba import jit
 
 class PHD():
@@ -103,7 +103,7 @@ class PHD():
     
     @jit
     def get_nb_mst_value(self, random_indices, dist_mat):
-        mst_values = cp.zeros(len(random_indices))
+        mst_values = np.zeros(len(random_indices))
         for i, ids in enumerate(random_indices):
             mst_values[i] = self._prim_tree(dist_mat, ids)
         return mst_values
