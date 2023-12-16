@@ -3,7 +3,7 @@ import numpy as np
 # import cupy as cp
 from numba import jit
 import multiprocessing as mp
-
+import cProfile
 
 
 class PHD():
@@ -163,10 +163,14 @@ class PHD():
         dist_mat = cdist(X, X, metric=self.metric)
         random_indices, x = self._generate_samples(dist_mat, min_points)
         
-        
+        profiler = cProfile.Profile()
+        profiler.enable()
         ##### HERE IS THE ONLY LOOP WE NEED TO SPEED UP #####
         mst_values = self.mst_method(random_indices, dist_mat)
-            
+        
+        profiler.disable()
+        profiler.print_stats(sort='cumulative')
+
         y = mst_values.reshape(-1, self.n_reruns).mean(axis = 1)
         
         x = np.log(x)
