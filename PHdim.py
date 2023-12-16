@@ -2,6 +2,9 @@ from scipy.spatial.distance import cdist
 import numpy as np
 # import cupy as cp
 from numba import jit
+import multiprocessing as mp
+
+
 
 class PHD():
     
@@ -29,6 +32,7 @@ class PHD():
 
         method = {
             'classic': self.get_mst_value,
+            'multiprocessing': self.get_mp_mst_value,
             'numba': self.get_nb_mst_value,
             'cupy': self.get_cp_mst_value,
         }
@@ -89,10 +93,49 @@ class PHD():
 
         return s.item()
     
+    
+    def _mp_prim_tree(self, adj_matrix, ids, return_dict, l, alpha=1.0):
+    
+        adj_matrix = adj_matrix[cp.ix_(ids,ids)]
+
+        infty = cp.max(adj_matrix) + 10
+
+        dst = cp.ones(adj_matrix.shape[0]) * infty
+        visited = cp.zeros(adj_matrix.shape[0], dtype=bool)
+        ancestor = -cp.ones(adj_matrix.shape[0], dtype=int)
+
+        v, s = 0, 0.0
+        for i in range(adj_matrix.shape[0] - 1):
+            visited[v] = 1
+            ancestor[dst > adj_matrix[v]] = v
+            dst = cp.minimum(dst, adj_matrix[v])
+            dst[visited] = infty
+
+            v = cp.argmin(dst)
+            s += (adj_matrix[v][ancestor[v]] ** alpha)
+        return_dict[l] = s.item()
+    
     def get_mst_value(self, random_indices, dist_mat):
         mst_values = np.zeros(len(random_indices))
         for i, ids in enumerate(random_indices):
             mst_values[i] = self._prim_tree(dist_mat, ids)
+        return mst_values
+    
+    def get_mp_mst_value(self, random_indices, dist_mat):
+        
+        mst_values = np.zeros(len(random_indices))
+        # num_workers = mp.cpu_count()  
+        manager = multiprocessing.Manager()
+        return_dict = manager.dict()
+        pool = mp.Pool(2)
+        for i, ids in enumerate(random_indices):
+            pool.apply_async(self._mp_prim_tree, args = (dist_mat, ids, return_dict, i))
+        pool.close()
+        pool.join()
+        
+        for k in return_dict.keys():
+            mst_values[k] = return_dict[k]
+        
         return mst_values
 
     def get_cp_mst_value(self, random_indices, dist_mat):
