@@ -2,7 +2,7 @@ import itertools
 from typing import Tuple, Dict
 from collections.abc import Iterable
 
-from tqdm.auto import tqdm
+from tqdm import tqdm
 import numpy as np
 import time
 import pandas as pd
@@ -71,8 +71,6 @@ def run_experiment(
         n_reruns_algo,
         method,
     ):
-    time = 0
-
     X = create_data(n_space_points, space_dim, method=method)
     phd = PHD(n_reruns=n_reruns_algo, n_points=n_subsample_points, mst_method_name=method)
     time_mean, time_std = multirun(n_rerun_time, phd.fit_transform, [X])

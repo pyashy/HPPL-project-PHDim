@@ -6,6 +6,8 @@ import multiprocessing as mp
 
 from joblib import Parallel, delayed
 
+import warnings
+warnings.filterwarnings("ignore")
 
 class PHD():
     
