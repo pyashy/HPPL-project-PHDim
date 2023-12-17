@@ -6,4 +6,4 @@ n_subsample_points: 15
 n_reruns_algo: 5
 n_rerun_time: 10
 
-method: ['cupy', 'classic', 'numba', 'multiprocessing', 'joblib']
+method: ['classic', 'numba', 'multiprocessing', 'joblib']
