@@ -1,6 +1,6 @@
 from scipy.spatial.distance import cdist
 import numpy as np
-# import cupy as cp
+import cupy as cp
 from numba import jit
 import multiprocessing as mp
 

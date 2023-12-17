@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 import numpy as np
 import time
 import pandas as pd
-# import cupy as cp
+import cupy as cp
 import skdim
 from scipy.spatial.distance import cdist
 
