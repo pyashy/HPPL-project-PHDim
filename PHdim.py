@@ -127,7 +127,7 @@ class PHD():
         
         mst_values = np.zeros(len(random_indices))
         # num_workers = mp.cpu_count()  
-        manager = multiprocessing.Manager()
+        manager = mp.Manager()
         return_dict = manager.dict()
         pool = mp.Pool(2)
         for i, ids in enumerate(random_indices):
