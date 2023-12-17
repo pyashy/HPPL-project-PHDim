@@ -15,7 +15,8 @@ class PHD():
         metric='euclidean', 
         n_reruns=5, 
         n_points=15, 
-        mst_method_name: str = 'classic'):
+        mst_method_name: str = 'classic'
+    ):
         '''
         Initializes the instance of PH-dim estimator
         Parameters:
@@ -98,22 +99,22 @@ class PHD():
     
     def _mp_prim_tree(self, adj_matrix, ids, return_dict, l, alpha=1.0):
     
-        adj_matrix = adj_matrix[cp.ix_(ids,ids)]
+        adj_matrix = adj_matrix[np.ix_(ids,ids)]
 
-        infty = cp.max(adj_matrix) + 10
+        infty = np.max(adj_matrix) + 10
 
-        dst = cp.ones(adj_matrix.shape[0]) * infty
-        visited = cp.zeros(adj_matrix.shape[0], dtype=bool)
-        ancestor = -cp.ones(adj_matrix.shape[0], dtype=int)
+        dst = np.ones(adj_matrix.shape[0]) * infty
+        visited = np.zeros(adj_matrix.shape[0], dtype=bool)
+        ancestor = -np.ones(adj_matrix.shape[0], dtype=int)
 
         v, s = 0, 0.0
         for i in range(adj_matrix.shape[0] - 1):
             visited[v] = 1
             ancestor[dst > adj_matrix[v]] = v
-            dst = cp.minimum(dst, adj_matrix[v])
+            dst = np.minimum(dst, adj_matrix[v])
             dst[visited] = infty
 
-            v = cp.argmin(dst)
+            v = np.argmin(dst)
             s += (adj_matrix[v][ancestor[v]] ** alpha)
         return_dict[l] = s.item()
     
