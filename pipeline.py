@@ -28,10 +28,8 @@ def create_data(
         sphere_radius: int = 1,
         method: str = 'classic',
 ):  
-    if method == 'cupy':
-        X = cp.zeros((n_points, space_dim))
-    else:
-        X = np.zeros((n_points, space_dim))
+
+    X = np.zeros((n_points, space_dim))
 
     X[:,:sphere_dim] = skdim.datasets.hyperBall(
         n = n_points, 
@@ -39,6 +37,9 @@ def create_data(
         radius = sphere_radius, 
         random_state=random_state
     )
+
+    if method == 'cupy':
+        X = cp.asarray(X)
     return X
 
 def get_param_grid(params_list):
@@ -86,7 +87,7 @@ def main():
     res = list() 
     col_names = ['n_space_points', 'space_dim', 'n_subsample_points', 'n_reruns_algo', 'method', 'n_rerun_time', 'time_mean', 'time_std']
     for params in tqdm(param_grid):
-        print(params)
+        #print(params)
         time_mean, time_std = run_experiment(cfg['n_rerun_time'], *params)
         res.append([*params, cfg['n_rerun_time'], time_mean, time_std])
 
