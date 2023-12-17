@@ -1,8 +1,9 @@
 import itertools
 from typing import Tuple, Dict
 from collections.abc import Iterable
-import numpy as np
 
+from tqdm.auto import tqdm
+import numpy as np
 import time
 import pandas as pd
 # from cupy import cp
@@ -84,8 +85,8 @@ def main():
 
     res = list() 
     col_names = ['n_space_points', 'space_dim', 'n_subsample_points', 'n_reruns_algo', 'method', 'n_rerun_time', 'time_mean', 'time_std']
-    for params in param_grid:
-        
+    for params in tqdm(param_grid):
+        print(params)
         time_mean, time_std = run_experiment(cfg['n_rerun_time'], *params)
         res.append([*params, cfg['n_rerun_time'], time_mean, time_std])
 
