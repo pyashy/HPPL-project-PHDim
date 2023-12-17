@@ -4,6 +4,7 @@ import numpy as np
 from numba import jit
 import multiprocessing as mp
 
+from joblib import Parallel, delayed
 
 
 class PHD():
@@ -35,6 +36,7 @@ class PHD():
             'multiprocessing': self.get_mp_mst_value,
             'numba': self.get_nb_mst_value,
             'cupy': self.get_cp_mst_value,
+            'joblib': self.get_jl_mst_value
         }
 
         if mst_method_name not in method.keys():
@@ -150,8 +152,14 @@ class PHD():
         for i, ids in enumerate(random_indices):
             mst_values[i] = self._prim_tree(dist_mat, ids)
         return mst_values
+    
+    def get_jl_mst_value(self, random_indices, dist_mat, n_jobs=-1):
+        def compute_mst(ids):
+            return self._prim_tree(dist_mat, ids)
 
-        
+        mst_values = Parallel(n_jobs=n_jobs)(delayed(compute_mst)(ids) for ids in random_indices)
+        return np.array(mst_values)
+
     def fit_transform(self, X, y=None, min_points = 50):
         '''
         Computing the PH-dim 
