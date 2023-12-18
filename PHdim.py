@@ -9,8 +9,7 @@ from joblib import Parallel, delayed
 
 import threading
 from queue import Queue
-
-jobs = Queue()
+from itertools import repeat
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -134,7 +133,7 @@ class PHD():
         return s.item()
     
     
-    def _mp_prim_tree(self, adj_matrix, ids, return_dict, l, alpha=1.0):
+    def _mp_prim_tree(self, adj_matrix, ids, alpha=1.0):
     
         adj_matrix = adj_matrix[np.ix_(ids,ids)]
 
@@ -182,21 +181,10 @@ class PHD():
         return mst_values
     
     def get_mp_mst_value(self, random_indices, dist_mat):
-        
+        with mp.Pool(self.n_workers) as pool:
+            mst_values = pool.starmap(self._prim_tree, zip(repeat(dist_mat), random_indices))
         mst_values = np.zeros(len(random_indices))
-        # num_workers = mp.cpu_count()  
-        manager = mp.Manager()
-        return_dict = manager.dict()
-        pool = mp.Pool(self.n_workers)
-        for i, ids in enumerate(random_indices):
-            pool.apply_async(self._mp_prim_tree, args = (dist_mat, ids, return_dict, i))
-        pool.close()
-        pool.join()
-        
-        for k in return_dict.keys():
-            mst_values[k] = return_dict[k]
-        
-        return mst_values
+        return np.array(mst_values)
 
     def get_cp_mst_value(self, random_indices, dist_mat):
         mst_values = cp.zeros(len(random_indices))
