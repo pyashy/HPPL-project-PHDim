@@ -1,7 +1,7 @@
 from scipy.spatial.distance import cdist
 import numpy as np
 # import cupy as cp
-from numba import jit
+from numba import jit, njit
 import multiprocessing as mp
 
 from joblib import Parallel, delayed
@@ -99,7 +99,7 @@ class PHD():
             v = np.argmin(dst)
             s += (adj_matrix[v][ancestor[v]] ** alpha)
 
-        return s.item()
+        return s
     
     def _cp_prim_tree(self, adj_matrix, ids, alpha=1.0):
     
