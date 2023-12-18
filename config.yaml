@@ -1,5 +1,5 @@
-experiment_name: 'test_'
-params_for_exp: [n_space_points, space_dim, n_subsample_points, n_reruns_algo]
+experiment_name: ''
+params_for_exp: [n_space_points, space_dim, n_subsample_points, n_reruns_algo] 
 
 n_workers: 4
 n_rerun_time: 5
@@ -16,4 +16,4 @@ iterative_params:
   n_subsample_points: [5, 10, 15, 20]
   n_reruns_algo: [3, 5, 7, 10]
 
-methods: ['classic', 'joblib', 'numba', 'multiprocessing']
+methods: [classic, joblib, numba, multiprocessing]
