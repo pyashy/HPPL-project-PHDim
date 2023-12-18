@@ -3,8 +3,14 @@ import numpy as np
 # import cupy as cp
 from numba import jit, njit
 import multiprocessing as mp
+import time
 
 from joblib import Parallel, delayed
+
+import threading
+from queue import Queue
+
+jobs = Queue()
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -34,13 +40,15 @@ class PHD():
         self.n_points = n_points
         self.metric = metric
         self.is_fitted_ = False
+        self.mst_method_name = mst_method_name
 
         method = {
             'classic': self.get_mst_value,
             'multiprocessing': self.get_mp_mst_value,
             'numba': self.get_nb_mst_value,
             'cupy': self.get_cp_mst_value,
-            'joblib': self.get_jl_mst_value
+            'joblib': self.get_jl_mst_value,
+            'threading': self.get_thread_mst_value
         }
 
         if mst_method_name not in method.keys():
@@ -172,7 +180,20 @@ class PHD():
         mst_values = cp.zeros(len(random_indices))
         for i, ids in enumerate(random_indices):
             mst_values[i] = self._cp_prim_tree(dist_mat, ids)
-        return mst_values
+        return mst_values.get()
+
+    def pairwise_distance_matrix(self, points):
+        squared_distances = cp.sum(points**2, axis=1, keepdims=True) + cp.sum(points**2, axis=1) - 2 * cp.dot(points, points.T)
+        distance_matrix = cp.sqrt(np.maximum(squared_distances, 0))
+        return distance_matrix
+
+    @jit
+    def pairwise_distance_matrix_numba(self, points):
+        n_points = points.shape[0]
+        squared_distances = np.sum(points**2, axis=1, keepdims=True) + np.sum(points**2, axis=1) - 2 * np.dot(points, points.T)
+        distance_matrix = np.sqrt(np.maximum(squared_distances, 0))
+
+        return distance_matrix
     
     @jit
     def get_nb_mst_value(self, random_indices, dist_mat):
@@ -187,6 +208,17 @@ class PHD():
 
         mst_values = Parallel(n_jobs=self.n_workers)(delayed(compute_mst)(ids) for ids in random_indices)
         return np.array(mst_values)
+    
+    def get_thread_mst_value(self, random_indices, dist_mat):
+        mst_values = np.zeros(len(random_indices))
+        jobs = Queue()
+        for i, ids in enumerate(random_indices):
+            jobs.put((dist_mat, ids, mst_values, i))
+        for i in range(self.n_workers):
+            worker = threading.Thread(target=self._mp_prim_tree, args=(jobs,))
+            worker.start()
+        jobs.join()
+        return np.array(mst_values)
 
     def fit_transform(self, X, y=None, min_points = 50):
         '''
@@ -196,12 +228,41 @@ class PHD():
         2) y --- fictional parameter to fit with Sklearn interface
         3) min_points --- size of minimal subsample to be drawn
         '''
-        dist_mat = cdist(X, X, metric=self.metric)
+
+        start_time_total = time.time()
+
+        # Measure the time for cdist
+        start_time_cdist = time.time()
+        # def pairwise_distance_matrix(points):
+        #      squared_distances = cp.sum(points**2, axis=1, keepdims=True) + cp.sum(points**2, axis=1) - 2 * cp.dot(points, points.T)
+        #      distance_matrix = cp.sqrt(np.maximum(squared_distances, 0))
+        #      return distance_matrix
+
+        if self.mst_method_name == 'cupy':
+          if self.metric == 'euclidean':
+            dist_mat = self.pairwise_distance_matrix(X)
+          else: print('Not implemented')
+        
+        if self.mst_method_name == 'numba':
+          if self.metric == 'euclidean':
+            dist_mat = self.pairwise_distance_matrix_numba(X)
+          else: print('Not implemented')
+
+        else:
+            dist_mat = cdist(X, X, metric=self.metric)
+
+        elapsed_time_cdist = time.time() - start_time_cdist
+        print(f"Time taken by cdist: {elapsed_time_cdist} seconds")
+
         random_indices, x = self._generate_samples(dist_mat, min_points)
         
-        
+        # Measure the time for the loop
+        start_time_loop = time.time()
         ##### HERE IS THE ONLY LOOP WE NEED TO SPEED UP #####
         mst_values = self.mst_method(random_indices, dist_mat)
+
+        elapsed_time_loop = time.time() - start_time_loop
+        print(f"Time taken by loop: {elapsed_time_loop} seconds")
             
         y = mst_values.reshape(-1, self.n_reruns).mean(axis = 1)
         
@@ -210,4 +271,17 @@ class PHD():
         N = self.n_points
         
         m = (N * (x * y).sum() - x.sum() * y.sum()) / (N * (x ** 2).sum() - x.sum() ** 2)
+
+        # Record the end time for the entire algorithm
+        end_time_total = time.time()
+        total_time = end_time_total - start_time_total
+
+        # Calculate the percentage of time spent in cdist relative to the total time
+        percentage_time_cdist = (elapsed_time_cdist / total_time) * 100
+
+        print(f"Total time for the algorithm: {total_time} seconds")
+        print(f"Percentage time spent in cdist: {percentage_time_cdist:.2f}%")
+        print(f"Percentage time spent in the loop: {(elapsed_time_loop / total_time) * 100:.2f}%")
+
         return 1 / (1 - m)
+    
