@@ -19,6 +19,7 @@ class PHD():
     def __init__(
         self, 
         alpha=1.0, 
+        dist='cdist',
         metric='euclidean', 
         n_reruns=5, 
         n_points=15, 
@@ -35,9 +36,14 @@ class PHD():
         3) n_reruns --- Number of restarts of whole calculations 
         4) n_points --- Number of subsamples to be drawn at each subsample
         '''
+
+        if dist not in ['cdist', 'numpy', 'numba', 'cupy']:
+            raise ValueError("dist should be cdist, cupy, numpy or numba")
+
         self.alpha = alpha
         self.n_reruns = n_reruns
         self.n_points = n_points
+        self.dist = dist
         self.metric = metric
         self.is_fitted_ = False
         self.mst_method_name = mst_method_name
@@ -47,7 +53,7 @@ class PHD():
             'classic': self.get_mst_value,
             'multiprocessing': self.get_mp_mst_value,
             'numba': self.get_nb_mst_value,
-            'cupy': self.get_mst_value, # self.get_cp_mst_value,
+            # 'cupy': self.get_mst_value, # self.get_cp_mst_value,
             'joblib': self.get_jl_mst_value,
             'threading': self.get_thread_mst_value
         }
@@ -248,36 +254,49 @@ class PHD():
         3) min_points --- size of minimal subsample to be drawn
         '''
 
-        start_time_total = time.time()
+        start_time_total = time.perf_counter()
 
-        # Measure the time for cdist
-        # start_time_cdist = time.time()
-
-        if self.mst_method_name == 'cupy':
-          if self.metric == 'euclidean':
-            dist_mat = self.pairwise_distance_matrix_cp(X).get()
-            cp.cuda.Device(0).synchronize() # this is required for correct time measurement
-          else: raise ValueError(f'metric {self.metric} not implemented')
+        # if self.mst_method_name == 'cupy':
+        #   if self.metric == 'euclidean':
+        #     dist_mat = self.pairwise_distance_matrix_cp(X).get()
+        #     cp.cuda.Device(0).synchronize() # this is required for correct time measurement
+        #   else: raise ValueError(f'metric {self.metric} not implemented')
         
-        elif self.mst_method_name == 'numba':
-          if self.metric == 'euclidean':
-            dist_mat = self.pairwise_distance_matrix_nb(X)
-          else: ValueError(f'metric {self.metric} not implemented')
+        # elif self.mst_method_name == 'numba':
+        #   if self.metric == 'euclidean':
+        #     dist_mat = self.pairwise_distance_matrix_nb(X)
+        #   else: ValueError(f'metric {self.metric} not implemented')
 
+        # else:
+        #     dist_mat = self.pairwise_distance_matrix(X)
+        if self.dist == 'numpy':
+            if self.metric == 'euclidean':
+                dist_mat = self.pairwise_distance_matrix(X)
+            else: ValueError(f'metric {self.metric} not implemented')
+        elif self.dist == 'numba':
+            if self.metric == 'euclidean':
+                dist_mat = self.pairwise_distance_matrix_nb(X)
+            else: ValueError(f'metric {self.metric} not implemented')
+        elif self.dist == 'cupy':
+            if self.metric == 'euclidean':
+                dist_mat = self.pairwise_distance_matrix_cp(cp.asarray(X)).get()
+                cp.cuda.Device(0).synchronize() # this is required for correct time measurement
+            else: ValueError(f'metric {self.metric} not implemented')
         else:
-            dist_mat = self.pairwise_distance_matrix(X)
+            dist_mat = cdist(X, X, metric=self.metric)
 
-        elapsed_time_cdist = time.time() - start_time_total
-        print(f"Time taken by cdist: {elapsed_time_cdist} seconds")
+        elapsed_time_cdist = time.perf_counter() - start_time_total
+        if self.verbose == 1:
+            print(f"Time taken by cdist: {elapsed_time_cdist} seconds")
 
         random_indices, x = self._generate_samples(dist_mat, min_points)
         
         # Measure the time for the loop
-        start_time_loop = time.time()
+        start_time_loop = time.perf_counter()
         ##### HERE IS THE ONLY LOOP WE NEED TO SPEED UP #####
         mst_values = self.mst_method(random_indices, dist_mat)
 
-        elapsed_time_loop = time.time() - start_time_loop
+        elapsed_time_loop = time.perf_counter() - start_time_loop
         if self.verbose == 1:
             print(f"Time taken by loop: {elapsed_time_loop} seconds")
             
@@ -290,7 +309,7 @@ class PHD():
         m = (N * (x * y).sum() - x.sum() * y.sum()) / (N * (x ** 2).sum() - x.sum() ** 2)
 
         # Record the end time for the entire algorithm
-        end_time_total = time.time()
+        end_time_total = time.perf_counter()
         total_time = end_time_total - start_time_total
 
         # Calculate the percentage of time spent in cdist relative to the total time

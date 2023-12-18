@@ -6,7 +6,7 @@ from tqdm import tqdm
 import numpy as np
 import time
 import pandas as pd
-# import cupy as cp
+import cupy as cp
 import skdim
 from scipy.spatial.distance import cdist
 
@@ -38,8 +38,6 @@ def create_data(
         random_state=random_state
     )
 
-    if method == 'cupy':
-        X = cp.asarray(X)
     return X
 
 def get_param_grid(params_list):
@@ -75,16 +73,17 @@ def multirun(n_runs, func, params):
     return np.mean(times), np.std(times)
 
 def run_experiment(
+        dist,
         n_rerun_time,
         method,
         n_workers,
         n_space_points, 
         space_dim, 
         n_subsample_points, 
-        n_reruns_algo,
+        n_reruns_algo
     ):
     X = create_data(n_space_points, space_dim, method=method)
-    phd = PHD(n_reruns=n_reruns_algo, n_points=n_subsample_points, mst_method_name=method, n_workers=n_workers)
+    phd = PHD(dist=dist, n_reruns=n_reruns_algo, n_points=n_subsample_points, mst_method_name=method, n_workers=n_workers)
     time_mean, time_std = multirun(n_rerun_time, phd.fit_transform, [X])
     return time_mean, time_std 
 
@@ -108,6 +107,7 @@ def main():
         'method', 
         'n_workers', 
         'n_rerun_time', 
+        'dist',
         'time_mean', 
         'time_std'
     ]
@@ -124,8 +124,8 @@ def main():
             res = list() 
             for grid_line_params in tqdm(param_grid):
                 print('Params ', grid_line_params)
-                time_mean, time_std = run_experiment(cfg['n_rerun_time'], method, cfg['n_workers'], *grid_line_params)
-                res.append([*grid_line_params, method, cfg['n_workers'], cfg['n_rerun_time'], time_mean, time_std])
+                time_mean, time_std = run_experiment(cfg['dist'], cfg['n_rerun_time'], method, cfg['n_workers'], *grid_line_params)
+                res.append([*grid_line_params, method, cfg['n_workers'], cfg['n_rerun_time'], cfg['dist'], time_mean, time_std])
 
             df_res = pd.DataFrame(res, columns=col_names)
             df_res.to_csv(f"results/{cfg['experiment_name']}_{exp_param}_{method}.csv", index=False)
