@@ -184,24 +184,24 @@ class PHD():
     
     def pairwise_distance_matrix(self, points):
         squared_distances = np.sum(points ** 2, axis=1, keepdims=True) 
-        squared_distances += np.sum(points ** 2, axis=1) 
-        squared_distances += -2 * np.dot(points, points.T)
+        squared_distances = squared_distances + np.sum(points ** 2, axis=1) 
+        squared_distances = squared_distances - 2 * np.dot(points, points.T)
         distance_matrix = np.sqrt(np.maximum(squared_distances, 0))
         return distance_matrix
 
     def pairwise_distance_matrix_cp(self, points):
         squared_distances = cp.sum(points ** 2, axis=1, keepdims=True) 
-        squared_distances += cp.sum(points ** 2, axis=1) 
-        squared_distances += -2 * cp.dot(points, points.T)
+        squared_distances = squared_distances + cp.sum(points ** 2, axis=1) 
+        squared_distances = squared_distances - 2 * cp.dot(points, points.T)
         distance_matrix = cp.sqrt(cp.maximum(squared_distances, 0))
         return distance_matrix
 
     @jit
     def pairwise_distance_matrix_nb(self, points):
-        n_points = points.shape[0]
-        squared_distances = np.sum(points**2, axis=1, keepdims=True) + np.sum(points**2, axis=1) - 2 * np.dot(points, points.T)
+        squared_distances = np.sum(points ** 2, axis=1, keepdims=True) 
+        squared_distances = squared_distances + np.sum(points ** 2, axis=1) 
+        squared_distances = squared_distances - 2 * np.dot(points, points.T)
         distance_matrix = np.sqrt(np.maximum(squared_distances, 0))
-
         return distance_matrix
     
     @jit
