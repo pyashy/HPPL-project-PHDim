@@ -151,6 +151,26 @@ class PHD():
             s += (adj_matrix[v][ancestor[v]] ** alpha)
         return_dict[l] = s.item()
     
+    def _thread_prim_tree(self, q, alpha=1.0):
+        while not q.empty():
+            adj_matrix, ids, return_dict, l = q.get()
+            adj_matrix = adj_matrix[np.ix_(ids,ids)]
+            infty = np.max(adj_matrix) + 10
+            dst = np.ones(adj_matrix.shape[0]) * infty
+            visited = np.zeros(adj_matrix.shape[0], dtype=bool)
+            ancestor = -np.ones(adj_matrix.shape[0], dtype=int)
+            v, s = 0, 0.0
+            for i in range(adj_matrix.shape[0] - 1):
+                visited[v] = 1
+                ancestor[dst > adj_matrix[v]] = v
+                dst = np.minimum(dst, adj_matrix[v])
+                dst[visited] = infty
+
+                v = np.argmin(dst)
+                s += (adj_matrix[v][ancestor[v]] ** alpha)
+            return_dict[l] = s.item()
+            q.task_done()
+    
     def get_mst_value(self, random_indices, dist_mat):
         mst_values = np.zeros(len(random_indices))
         for i, ids in enumerate(random_indices):
@@ -200,7 +220,7 @@ class PHD():
         for i, ids in enumerate(random_indices):
             jobs.put((dist_mat, ids, mst_values, i))
         for i in range(self.n_workers):
-            worker = threading.Thread(target=self._mp_prim_tree, args=(jobs,))
+            worker = threading.Thread(target=self._thread_prim_tree, args=(jobs,))
             worker.start()
         jobs.join()
         return np.array(mst_values)
