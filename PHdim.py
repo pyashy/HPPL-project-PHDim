@@ -78,6 +78,29 @@ class PHD():
 
         return s.item()
     
+    @jit
+    def _nb_prim_tree(self, adj_matrix, ids, alpha=1.0):
+    
+        adj_matrix = adj_matrix[np.ix_(ids,ids)]
+
+        infty = np.max(adj_matrix) + 10
+
+        dst = np.ones(adj_matrix.shape[0]) * infty
+        visited = np.zeros(adj_matrix.shape[0], dtype=bool)
+        ancestor = -np.ones(adj_matrix.shape[0], dtype=int)
+
+        v, s = 0, 0.0
+        for i in range(adj_matrix.shape[0] - 1):
+            visited[v] = 1
+            ancestor[dst > adj_matrix[v]] = v
+            dst = np.minimum(dst, adj_matrix[v])
+            dst[visited] = infty
+
+            v = np.argmin(dst)
+            s += (adj_matrix[v][ancestor[v]] ** alpha)
+
+        return s.item()
+    
     def _cp_prim_tree(self, adj_matrix, ids, alpha=1.0):
     
         adj_matrix = adj_matrix[cp.ix_(ids,ids)]
@@ -155,7 +178,7 @@ class PHD():
     def get_nb_mst_value(self, random_indices, dist_mat):
         mst_values = np.zeros(len(random_indices))
         for i, ids in enumerate(random_indices):
-            mst_values[i] = self._prim_tree(dist_mat, ids)
+            mst_values[i] = self._nb_prim_tree(dist_mat, ids)
         return mst_values
     
     def get_jl_mst_value(self, random_indices, dist_mat):
