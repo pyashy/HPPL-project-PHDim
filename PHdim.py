@@ -279,7 +279,8 @@ class PHD():
             dist_mat = self.pairwise_distance_matrix(X)
 
         elapsed_time_cdist = time.time() - start_time_cdist
-        print(f"Time taken by cdist: {elapsed_time_cdist} seconds")
+        if self.verbose == 1:
+            print(f"Time taken by cdist: {elapsed_time_cdist} seconds")
 
         random_indices, x = self._generate_samples(dist_mat, min_points)
         
@@ -289,7 +290,8 @@ class PHD():
         mst_values = self.mst_method(random_indices, dist_mat)
 
         elapsed_time_loop = time.time() - start_time_loop
-        print(f"Time taken by loop: {elapsed_time_loop} seconds")
+        if self.verbose == 1:
+            print(f"Time taken by loop: {elapsed_time_loop} seconds")
             
         y = mst_values.reshape(-1, self.n_reruns).mean(axis = 1)
         
