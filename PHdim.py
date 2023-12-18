@@ -181,14 +181,23 @@ class PHD():
         for i, ids in enumerate(random_indices):
             mst_values[i] = self._cp_prim_tree(dist_mat, ids)
         return mst_values.get()
-
+    
     def pairwise_distance_matrix(self, points):
-        squared_distances = cp.sum(points**2, axis=1, keepdims=True) + cp.sum(points**2, axis=1) - 2 * cp.dot(points, points.T)
-        distance_matrix = cp.sqrt(np.maximum(squared_distances, 0))
+        squared_distances = np.sum(points ** 2, axis=1, keepdims=True) 
+        squared_distances += np.sum(points ** 2, axis=1) 
+        squared_distances += -2 * np.dot(points, points.T)
+        distance_matrix = np.sqrt(np.maximum(squared_distances, 0))
+        return distance_matrix
+
+    def pairwise_distance_matrix_cp(self, points):
+        squared_distances = cp.sum(points ** 2, axis=1, keepdims=True) 
+        squared_distances += cp.sum(points ** 2, axis=1) 
+        squared_distances += -2 * cp.dot(points, points.T)
+        distance_matrix = cp.sqrt(cp.maximum(squared_distances, 0))
         return distance_matrix
 
     @jit
-    def pairwise_distance_matrix_numba(self, points):
+    def pairwise_distance_matrix_nb(self, points):
         n_points = points.shape[0]
         squared_distances = np.sum(points**2, axis=1, keepdims=True) + np.sum(points**2, axis=1) - 2 * np.dot(points, points.T)
         distance_matrix = np.sqrt(np.maximum(squared_distances, 0))
@@ -233,23 +242,19 @@ class PHD():
 
         # Measure the time for cdist
         start_time_cdist = time.time()
-        # def pairwise_distance_matrix(points):
-        #      squared_distances = cp.sum(points**2, axis=1, keepdims=True) + cp.sum(points**2, axis=1) - 2 * cp.dot(points, points.T)
-        #      distance_matrix = cp.sqrt(np.maximum(squared_distances, 0))
-        #      return distance_matrix
 
         if self.mst_method_name == 'cupy':
           if self.metric == 'euclidean':
-            dist_mat = self.pairwise_distance_matrix(X)
-          else: print('Not implemented')
+            dist_mat = self.pairwise_distance_matrix_cp(X)
+          else: raise ValueError(f'metric {self.metric} not implemented')
         
-        if self.mst_method_name == 'numba':
+        elif self.mst_method_name == 'numba':
           if self.metric == 'euclidean':
-            dist_mat = self.pairwise_distance_matrix_numba(X)
-          else: print('Not implemented')
+            dist_mat = self.pairwise_distance_matrix_nb(X)
+          else: ValueError(f'metric {self.metric} not implemented')
 
         else:
-            dist_mat = cdist(X, X, metric=self.metric)
+            dist_mat = self.pairwise_distance_matrix(X)
 
         elapsed_time_cdist = time.time() - start_time_cdist
         print(f"Time taken by cdist: {elapsed_time_cdist} seconds")
