@@ -128,7 +128,7 @@ def main():
                 res.append([*grid_line_params, method, cfg['n_workers'], cfg['n_rerun_time'], time_mean, time_std])
 
             df_res = pd.DataFrame(res, columns=col_names)
-            df_res.to_csv(f"results/{cfg['experiment_name']}{exp_param}_{method}.csv", index=False)
+            df_res.to_csv(f"results/{cfg['experiment_name']}_{exp_param}_{method}.csv", index=False)
 
 if __name__ == '__main__':
     main()
