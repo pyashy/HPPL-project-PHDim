@@ -5,7 +5,15 @@ from numba import jit
 import multiprocessing as mp
 import time
 
+from joblib import Parallel, delayed
 
+import threading
+from queue import Queue
+
+jobs = Queue()
+
+import warnings
+warnings.filterwarnings("ignore")
 
 class PHD():
     
@@ -15,7 +23,9 @@ class PHD():
         metric='euclidean', 
         n_reruns=5, 
         n_points=15, 
-        mst_method_name: str = 'classic'):
+        mst_method_name: str = 'classic',
+        n_workers: int = 2,
+    ):
         '''
         Initializes the instance of PH-dim estimator
         Parameters:
@@ -37,11 +47,14 @@ class PHD():
             'multiprocessing': self.get_mp_mst_value,
             'numba': self.get_nb_mst_value,
             'cupy': self.get_cp_mst_value,
+            'joblib': self.get_jl_mst_value,
+            'threading': self.get_thread_mst_value
         }
 
         if mst_method_name not in method.keys():
             raise ValueError(f'Method {mst_method_name} is not implemented')
         self.mst_method = method[mst_method_name]
+        self.n_workers = n_workers
 
     def _generate_samples(self, dist_mat, min_points):
         n = dist_mat.shape[0]
@@ -52,6 +65,29 @@ class PHD():
         return random_indices, test_n
     
     def _prim_tree(self, adj_matrix, ids, alpha=1.0):
+    
+        adj_matrix = adj_matrix[np.ix_(ids,ids)]
+
+        infty = np.max(adj_matrix) + 10
+
+        dst = np.ones(adj_matrix.shape[0]) * infty
+        visited = np.zeros(adj_matrix.shape[0], dtype=bool)
+        ancestor = -np.ones(adj_matrix.shape[0], dtype=int)
+
+        v, s = 0, 0.0
+        for i in range(adj_matrix.shape[0] - 1):
+            visited[v] = 1
+            ancestor[dst > adj_matrix[v]] = v
+            dst = np.minimum(dst, adj_matrix[v])
+            dst[visited] = infty
+
+            v = np.argmin(dst)
+            s += (adj_matrix[v][ancestor[v]] ** alpha)
+
+        return s.item()
+    
+    @jit
+    def _nb_prim_tree(self, adj_matrix, ids, alpha=1.0):
     
         adj_matrix = adj_matrix[np.ix_(ids,ids)]
 
@@ -98,22 +134,22 @@ class PHD():
     
     def _mp_prim_tree(self, adj_matrix, ids, return_dict, l, alpha=1.0):
     
-        adj_matrix = adj_matrix[cp.ix_(ids,ids)]
+        adj_matrix = adj_matrix[np.ix_(ids,ids)]
 
-        infty = cp.max(adj_matrix) + 10
+        infty = np.max(adj_matrix) + 10
 
-        dst = cp.ones(adj_matrix.shape[0]) * infty
-        visited = cp.zeros(adj_matrix.shape[0], dtype=bool)
-        ancestor = -cp.ones(adj_matrix.shape[0], dtype=int)
+        dst = np.ones(adj_matrix.shape[0]) * infty
+        visited = np.zeros(adj_matrix.shape[0], dtype=bool)
+        ancestor = -np.ones(adj_matrix.shape[0], dtype=int)
 
         v, s = 0, 0.0
         for i in range(adj_matrix.shape[0] - 1):
             visited[v] = 1
             ancestor[dst > adj_matrix[v]] = v
-            dst = cp.minimum(dst, adj_matrix[v])
+            dst = np.minimum(dst, adj_matrix[v])
             dst[visited] = infty
 
-            v = cp.argmin(dst)
+            v = np.argmin(dst)
             s += (adj_matrix[v][ancestor[v]] ** alpha)
         return_dict[l] = s.item()
     
@@ -129,7 +165,7 @@ class PHD():
         # num_workers = mp.cpu_count()  
         manager = mp.Manager()
         return_dict = manager.dict()
-        pool = mp.Pool(2)
+        pool = mp.Pool(self.n_workers)
         for i, ids in enumerate(random_indices):
             pool.apply_async(self._mp_prim_tree, args = (dist_mat, ids, return_dict, i))
         pool.close()
@@ -163,10 +199,27 @@ class PHD():
     def get_nb_mst_value(self, random_indices, dist_mat):
         mst_values = np.zeros(len(random_indices))
         for i, ids in enumerate(random_indices):
-            mst_values[i] = self._prim_tree(dist_mat, ids)
+            mst_values[i] = self._nb_prim_tree(dist_mat, ids)
         return mst_values
+    
+    def get_jl_mst_value(self, random_indices, dist_mat):
+        def compute_mst(ids):
+            return self._prim_tree(dist_mat, ids)
 
-        
+        mst_values = Parallel(n_jobs=self.n_workers)(delayed(compute_mst)(ids) for ids in random_indices)
+        return np.array(mst_values)
+    
+    def get_thread_mst_value(self, random_indices, dist_mat):
+        mst_values = np.zeros(len(random_indices))
+        jobs = Queue()
+        for i, ids in enumerate(random_indices):
+            jobs.put((dist_mat, ids, mst_values, i))
+        for i in range(self.n_workers):
+            worker = threading.Thread(target=self._mp_prim_tree, args=(jobs,))
+            worker.start()
+        jobs.join()
+        return np.array(mst_values)
+
     def fit_transform(self, X, y=None, min_points = 50):
         '''
         Computing the PH-dim 
