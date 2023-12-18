@@ -25,6 +25,7 @@ class PHD():
         n_points=15, 
         mst_method_name: str = 'classic',
         n_workers: int = 2,
+        verbose: int = 0
     ):
         '''
         Initializes the instance of PH-dim estimator
@@ -41,6 +42,7 @@ class PHD():
         self.metric = metric
         self.is_fitted_ = False
         self.mst_method_name = mst_method_name
+        self.verbose = verbose
 
         method = {
             'classic': self.get_mst_value,
@@ -284,9 +286,10 @@ class PHD():
         # Calculate the percentage of time spent in cdist relative to the total time
         percentage_time_cdist = (elapsed_time_cdist / total_time) * 100
 
-        print(f"Total time for the algorithm: {total_time} seconds")
-        print(f"Percentage time spent in cdist: {percentage_time_cdist:.2f}%")
-        print(f"Percentage time spent in the loop: {(elapsed_time_loop / total_time) * 100:.2f}%")
+        if self.verbose == 1:
+            print(f"Total time for the algorithm: {total_time} seconds")
+            print(f"Percentage time spent in cdist: {percentage_time_cdist:.2f}%")
+            print(f"Percentage time spent in the loop: {(elapsed_time_loop / total_time) * 100:.2f}%")
 
         return 1 / (1 - m)
     
