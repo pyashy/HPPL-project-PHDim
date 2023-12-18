@@ -9,8 +9,7 @@ from joblib import Parallel, delayed
 
 import threading
 from queue import Queue
-
-jobs = Queue()
+from itertools import repeat
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -134,7 +133,7 @@ class PHD():
     #     return s.item()
     
     
-    def _mp_prim_tree(self, adj_matrix, ids, return_dict, l, alpha=1.0):
+    def _mp_prim_tree(self, adj_matrix, ids, alpha=1.0):
     
         adj_matrix = adj_matrix[np.ix_(ids,ids)]
 
@@ -155,6 +154,26 @@ class PHD():
             s += (adj_matrix[v][ancestor[v]] ** alpha)
         return_dict[l] = s.item()
     
+    def _thread_prim_tree(self, q, alpha=1.0):
+        while not q.empty():
+            adj_matrix, ids, return_dict, l = q.get()
+            adj_matrix = adj_matrix[np.ix_(ids,ids)]
+            infty = np.max(adj_matrix) + 10
+            dst = np.ones(adj_matrix.shape[0]) * infty
+            visited = np.zeros(adj_matrix.shape[0], dtype=bool)
+            ancestor = -np.ones(adj_matrix.shape[0], dtype=int)
+            v, s = 0, 0.0
+            for i in range(adj_matrix.shape[0] - 1):
+                visited[v] = 1
+                ancestor[dst > adj_matrix[v]] = v
+                dst = np.minimum(dst, adj_matrix[v])
+                dst[visited] = infty
+
+                v = np.argmin(dst)
+                s += (adj_matrix[v][ancestor[v]] ** alpha)
+            return_dict[l] = s.item()
+            q.task_done()
+    
     def get_mst_value(self, random_indices, dist_mat):
         mst_values = np.zeros(len(random_indices))
         for i, ids in enumerate(random_indices):
@@ -162,21 +181,10 @@ class PHD():
         return mst_values
     
     def get_mp_mst_value(self, random_indices, dist_mat):
-        
+        with mp.Pool(self.n_workers) as pool:
+            mst_values = pool.starmap(self._prim_tree, zip(repeat(dist_mat), random_indices))
         mst_values = np.zeros(len(random_indices))
-        # num_workers = mp.cpu_count()  
-        manager = mp.Manager()
-        return_dict = manager.dict()
-        pool = mp.Pool(self.n_workers)
-        for i, ids in enumerate(random_indices):
-            pool.apply_async(self._mp_prim_tree, args = (dist_mat, ids, return_dict, i))
-        pool.close()
-        pool.join()
-        
-        for k in return_dict.keys():
-            mst_values[k] = return_dict[k]
-        
-        return mst_values
+        return np.array(mst_values)
 
     # def get_cp_mst_value(self, random_indices, dist_mat):
     #     mst_values = cp.zeros(len(random_indices))
@@ -226,7 +234,7 @@ class PHD():
         for i, ids in enumerate(random_indices):
             jobs.put((dist_mat, ids, mst_values, i))
         for i in range(self.n_workers):
-            worker = threading.Thread(target=self._mp_prim_tree, args=(jobs,))
+            worker = threading.Thread(target=self._thread_prim_tree, args=(jobs,))
             worker.start()
         jobs.join()
         return np.array(mst_values)
@@ -270,7 +278,8 @@ class PHD():
         mst_values = self.mst_method(random_indices, dist_mat)
 
         elapsed_time_loop = time.time() - start_time_loop
-        print(f"Time taken by loop: {elapsed_time_loop} seconds")
+        if self.verbose == 1:
+            print(f"Time taken by loop: {elapsed_time_loop} seconds")
             
         y = mst_values.reshape(-1, self.n_reruns).mean(axis = 1)
         
