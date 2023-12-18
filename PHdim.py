@@ -6,6 +6,11 @@ import multiprocessing as mp
 
 from joblib import Parallel, delayed
 
+import threading
+from queue import Queue
+
+jobs = Queue()
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -40,7 +45,8 @@ class PHD():
             'multiprocessing': self.get_mp_mst_value,
             'numba': self.get_nb_mst_value,
             'cupy': self.get_cp_mst_value,
-            'joblib': self.get_jl_mst_value
+            'joblib': self.get_jl_mst_value,
+            'threading': self.get_thread_mst_value
         }
 
         if mst_method_name not in method.keys():
@@ -186,6 +192,17 @@ class PHD():
             return self._prim_tree(dist_mat, ids)
 
         mst_values = Parallel(n_jobs=self.n_workers)(delayed(compute_mst)(ids) for ids in random_indices)
+        return np.array(mst_values)
+    
+    def get_thread_mst_value(self, random_indices, dist_mat):
+        mst_values = np.zeros(len(random_indices))
+        jobs = Queue()
+        for i, ids in enumerate(random_indices):
+            jobs.put((dist_mat, ids, mst_values, i))
+        for i in range(self.n_workers):
+            worker = threading.Thread(target=self._mp_prim_tree, args=(jobs,))
+            worker.start()
+        jobs.join()
         return np.array(mst_values)
 
     def fit_transform(self, X, y=None, min_points = 50):
