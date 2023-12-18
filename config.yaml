@@ -1,9 +1,10 @@
 experiment_name: 'test'
 
-n_space_points: 1000
-space_dim: [10, 20, 50]
+n_workers: 4
+n_space_points: 100
+space_dim: 10
 n_subsample_points: 15
-n_reruns_algo: 5
+n_reruns_algo: [5, 10]
 n_rerun_time: 10
 
-method: ['classic', 'numba', 'multiprocessing', 'joblib']
+method: ['classic', 'joblib', 'numba', 'multiprocessing']

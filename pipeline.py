@@ -70,28 +70,49 @@ def run_experiment(
         n_subsample_points, 
         n_reruns_algo,
         method,
+        n_workers,
     ):
     X = create_data(n_space_points, space_dim, method=method)
-    phd = PHD(n_reruns=n_reruns_algo, n_points=n_subsample_points, mst_method_name=method)
+    phd = PHD(n_reruns=n_reruns_algo, n_points=n_subsample_points, mst_method_name=method, n_workers=n_workers)
     time_mean, time_std = multirun(n_rerun_time, phd.fit_transform, [X])
     return time_mean, time_std 
 
-def main():
-    cfg =  read_config(path='config.yaml')
+def save_data(df_res, path, exp_name, config):
+    for method in df_res['method'].unique():
+        temp = df_res[df_res['method'] == method]
+        temp.to_csv(f"{path}/{exp_name}_{method}.csv", index=False)
 
-    params_list = [cfg['n_space_points'], cfg['space_dim'], cfg['n_subsample_points'], cfg['n_reruns_algo'], cfg['method']]
+    with open(f"{path}/{exp_name}_config.yaml", 'w') as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+def main():
+    cfg = read_config(path='config.yaml')
+    print(type(cfg))
+
+    params_list = [cfg['n_space_points'], cfg['space_dim'], cfg['n_subsample_points'], cfg['n_reruns_algo'], cfg['method'], cfg['n_workers']]
     param_grid = get_param_grid(params_list)
 
     res = list() 
-    col_names = ['n_space_points', 'space_dim', 'n_subsample_points', 'n_reruns_algo', 'method', 'n_rerun_time', 'time_mean', 'time_std']
+    col_names = [
+        'n_space_points', 
+        'space_dim',
+        'n_subsample_points', 
+        'n_reruns_algo', 
+        'method', 
+        'n_workers', 
+        'n_rerun_time', 
+        'time_mean', 
+        'time_std'
+    ]
+    
     for params in tqdm(param_grid):
-        #print(params)
+        print(params)
         time_mean, time_std = run_experiment(cfg['n_rerun_time'], *params)
         res.append([*params, cfg['n_rerun_time'], time_mean, time_std])
 
-
+    print(res)
     df_res = pd.DataFrame(res, columns=col_names)
-    df_res.to_csv(f"results/{cfg['experiment_name']}.csv", index=False)
+    save_data(df_res=df_res, path='results/', exp_name = cfg['experiment_name'], config=cfg)
 
 
 if __name__ == '__main__':

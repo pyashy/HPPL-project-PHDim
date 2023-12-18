@@ -17,7 +17,8 @@ class PHD():
         metric='euclidean', 
         n_reruns=5, 
         n_points=15, 
-        mst_method_name: str = 'classic'
+        mst_method_name: str = 'classic',
+        n_workers: int = 2,
     ):
         '''
         Initializes the instance of PH-dim estimator
@@ -45,6 +46,7 @@ class PHD():
         if mst_method_name not in method.keys():
             raise ValueError(f'Method {mst_method_name} is not implemented')
         self.mst_method = method[mst_method_name]
+        self.n_workers = n_workers
 
     def _generate_samples(self, dist_mat, min_points):
         n = dist_mat.shape[0]
@@ -132,7 +134,7 @@ class PHD():
         # num_workers = mp.cpu_count()  
         manager = mp.Manager()
         return_dict = manager.dict()
-        pool = mp.Pool(2)
+        pool = mp.Pool(self.n_workers)
         for i, ids in enumerate(random_indices):
             pool.apply_async(self._mp_prim_tree, args = (dist_mat, ids, return_dict, i))
         pool.close()
@@ -156,11 +158,11 @@ class PHD():
             mst_values[i] = self._prim_tree(dist_mat, ids)
         return mst_values
     
-    def get_jl_mst_value(self, random_indices, dist_mat, n_jobs=-1):
+    def get_jl_mst_value(self, random_indices, dist_mat):
         def compute_mst(ids):
             return self._prim_tree(dist_mat, ids)
 
-        mst_values = Parallel(n_jobs=n_jobs)(delayed(compute_mst)(ids) for ids in random_indices)
+        mst_values = Parallel(n_jobs=self.n_workers)(delayed(compute_mst)(ids) for ids in random_indices)
         return np.array(mst_values)
 
     def fit_transform(self, X, y=None, min_points = 50):
