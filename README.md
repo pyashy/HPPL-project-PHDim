@@ -14,8 +14,10 @@ The focus of the project is Persistence Homology Dimension (PHdim) algorithm des
 | --- | --- |
 | results | the folder contains results of the project|
 | config.yaml | config file with parameters of the experiments |
+| PHdim.py |  python-file with PHD class and other methods |
 | pipeline.py |  python-file with scripts of running all experiments |
 | plots.ipynb | jupyter notebook for drawing plots |
+| distance_speedup.ipynb | jupyter notebook for analysing speedup of pairwise distance function |
 | requirements.txt | file with all necessary packages |
 
 ## Results
@@ -31,6 +33,6 @@ The cupy method for pair distance optimization and joblib package for prim tree 
 | Alexander Yugay | @AleksandrY99 |
 | Irena Gureeva | @thdktgdk |
 
-
+## References
 
 [1] Tulchinskii, E., Kuznetsov, K., Laida, K., Cherniavskii, D., Nikolenko, S., Burnaev, E., Barannikov, S., & Piontkovskaya, I. (2023). Intrinsic Dimension Estimation for Robust Detection of AI-Generated Texts. Thirty-Seventh Conference on Neural Information Processing Systems.
