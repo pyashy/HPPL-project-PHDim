@@ -53,7 +53,7 @@ class PHD():
             'classic': self.get_mst_value,
             'multiprocessing': self.get_mp_mst_value,
             'numba': self.get_nb_mst_value,
-            # 'cupy': self.get_mst_value, # self.get_cp_mst_value,
+            'cupy': self.get_cp_mst_value,
             'joblib': self.get_jl_mst_value,
             'threading': self.get_thread_mst_value
         }
@@ -116,27 +116,27 @@ class PHD():
 
         return s
     
-    # def _cp_prim_tree(self, adj_matrix, ids, alpha=1.0):
+    def _cp_prim_tree(self, adj_matrix, ids, alpha=1.0):
     
-    #     adj_matrix = adj_matrix[cp.ix_(ids,ids)]
+        adj_matrix = adj_matrix[cp.ix_(ids,ids)]
 
-    #     infty = cp.max(adj_matrix) + 10
+        infty = cp.max(adj_matrix) + 10
 
-    #     dst = cp.ones(adj_matrix.shape[0]) * infty
-    #     visited = cp.zeros(adj_matrix.shape[0], dtype=bool)
-    #     ancestor = -cp.ones(adj_matrix.shape[0], dtype=int)
+        dst = cp.ones(adj_matrix.shape[0]) * infty
+        visited = cp.zeros(adj_matrix.shape[0], dtype=bool)
+        ancestor = -cp.ones(adj_matrix.shape[0], dtype=int)
 
-    #     v, s = 0, 0.0
-    #     for i in range(adj_matrix.shape[0] - 1):
-    #         visited[v] = 1
-    #         ancestor[dst > adj_matrix[v]] = v
-    #         dst = cp.minimum(dst, adj_matrix[v])
-    #         dst[visited] = infty
+        v, s = 0, 0.0
+        for i in range(adj_matrix.shape[0] - 1):
+            visited[v] = 1
+            ancestor[dst > adj_matrix[v]] = v
+            dst = cp.minimum(dst, adj_matrix[v])
+            dst[visited] = infty
 
-    #         v = cp.argmin(dst)
-    #         s += (adj_matrix[v][ancestor[v]] ** alpha)
+            v = cp.argmin(dst)
+            s += (adj_matrix[v][ancestor[v]] ** alpha)
 
-    #     return s.item()
+        return s.item()
     
     
     def _mp_prim_tree(self, adj_matrix, ids, alpha=1.0):
@@ -192,11 +192,11 @@ class PHD():
         mst_values = np.zeros(len(random_indices))
         return np.array(mst_values)
 
-    # def get_cp_mst_value(self, random_indices, dist_mat):
-    #     mst_values = cp.zeros(len(random_indices))
-    #     for i, ids in enumerate(random_indices):
-    #         mst_values[i] = self._cp_prim_tree(dist_mat, ids)
-    #     return mst_values.get()
+    def get_cp_mst_value(self, random_indices, dist_mat):
+        mst_values = cp.zeros(len(random_indices))
+        for i, ids in enumerate(random_indices):
+            mst_values[i] = self._cp_prim_tree(dist_mat, ids)
+        return mst_values.get()
     
     def pairwise_distance_matrix(self, points):
         squared_distances = np.sum(points ** 2, axis=1, keepdims=True) 
@@ -256,19 +256,6 @@ class PHD():
 
         start_time_total = time.perf_counter()
 
-        # if self.mst_method_name == 'cupy':
-        #   if self.metric == 'euclidean':
-        #     dist_mat = self.pairwise_distance_matrix_cp(X).get()
-        #     cp.cuda.Device(0).synchronize() # this is required for correct time measurement
-        #   else: raise ValueError(f'metric {self.metric} not implemented')
-        
-        # elif self.mst_method_name == 'numba':
-        #   if self.metric == 'euclidean':
-        #     dist_mat = self.pairwise_distance_matrix_nb(X)
-        #   else: ValueError(f'metric {self.metric} not implemented')
-
-        # else:
-        #     dist_mat = self.pairwise_distance_matrix(X)
         if self.dist == 'numpy':
             if self.metric == 'euclidean':
                 dist_mat = self.pairwise_distance_matrix(X)
