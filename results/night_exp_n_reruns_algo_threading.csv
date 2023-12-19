@@ -1,0 +1,5 @@
+n_space_points,space_dim,n_subsample_points,n_reruns_algo,method,n_workers,n_rerun_time,dist,time_mean,time_std
+5000,100,10,3,threading,4,5,cupy,2.3057303572015373,0.2481928521440507
+5000,100,10,5,threading,4,5,cupy,3.792746656399686,0.1620923461683662
+5000,100,10,7,threading,4,5,cupy,5.08125039620063,0.3621531102659973
+5000,100,10,10,threading,4,5,cupy,7.572762557199167,1.0770689819192407

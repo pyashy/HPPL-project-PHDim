@@ -1,0 +1,45 @@
+experiment_name: night_exp
+params_for_exp:
+- n_space_points
+- space_dim
+- n_subsample_points
+- n_reruns_algo
+n_workers: 4
+n_rerun_time: 5
+dist: cupy
+default_params:
+  n_space_points: 5000
+  space_dim: 100
+  n_subsample_points: 10
+  n_reruns_algo: 5
+iterative_params:
+  n_space_points:
+  - 100
+  - 500
+  - 1000
+  - 2000
+  - 5000
+  - 7500
+  - 10000
+  space_dim:
+  - 10
+  - 50
+  - 100
+  - 500
+  - 1000
+  n_subsample_points:
+  - 5
+  - 10
+  - 15
+  - 20
+  n_reruns_algo:
+  - 3
+  - 5
+  - 7
+  - 10
+methods:
+- classic
+- joblib
+- numba
+- multiprocessing
+- threading
